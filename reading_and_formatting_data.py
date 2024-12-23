@@ -29,6 +29,9 @@ wear_inertial = {
     }
 }
 
+wear_inertial['metadata']['class_values'] = np.unique(wear_inertial['y'])
+daily_sports_activities['metadata']['class_values'] = np.unique(daily_sports_activities['y'])
+
 
 with open('/home/stbastos/experiments/health_tests/multimodal_tsc_study_cases/downloaded_datasets/daily_sports_activities.pkl','wb') as f:
     pickle.dump(daily_sports_activities, f)

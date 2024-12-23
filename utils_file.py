@@ -54,13 +54,13 @@ def get_all_results():
     return complete_data
 
 
-def training_nn_for_seeds(used_model, device = 'cuda', datasets = [], seeds = [], is_multimodal = False, is_debbug = False, num_ensembles = None):
+def training_nn_for_seeds(used_model, device = 'cuda', datasets = [], seeds = [], is_multimodal = False, is_debbug = False, num_ensembles = None, custom_groups = True):
     for dataset in tqdm(datasets):
         model_count = 1
         for random_state in tqdm(seeds):
             print(f'{dataset} - {random_state}')
             used_dataset = read_dataset_from_file(dataset_name = dataset)
-            X, y, metadata = used_dataset
+            X, y, metadata = used_dataset['X'], used_dataset['y'], used_dataset['metadata']
 
             get_dummies_object = GetDummiesLabels(
                 X_raw= X,
@@ -75,9 +75,10 @@ def training_nn_for_seeds(used_model, device = 'cuda', datasets = [], seeds = []
                 y_raw= y,
                 metadata= metadata,
                 random_state = random_state
+                
             )
 
-            X_train, X_test, y_train, y_test = train_test_object.transform()
+            X_train, X_test, y_train, y_test = train_test_object.transform(custom_groups = custom_groups)
             X_train, X_test, y_train, y_test = torch.from_numpy(X_train).to(device), torch.from_numpy(X_test).to(device), torch.from_numpy(y_train).to(device), torch.from_numpy(y_test).to(device)
 
 

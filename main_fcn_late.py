@@ -4,7 +4,7 @@ from utils_file import training_nn_for_seeds
 
 training_nn_for_seeds(
     # datasets= ['ArticularyWordRecognition', 'BasicMotions', 'Cricket', 'NATOPS', 'RacketSports', 'AtrialFibrillation', 'StandWalkJump', 'EigenWorms'], 
-    datasets= ['ArticularyWordRecognition', 'BasicMotions', 'Cricket', 'NATOPS', 'RacketSports', 'AtrialFibrillation', 'StandWalkJump', 'EigenWorms'],
+    datasets= ['daily_sports_activities', 'wear_inertial'],
     seeds= list(range(1, 11)),
     used_model = FullyConvolutionalNetwork1DLate,
     is_multimodal=True

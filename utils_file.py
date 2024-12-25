@@ -140,8 +140,9 @@ def training_nn_for_seeds(used_model, device = 'cuda', datasets = [], seeds = []
                     best_models.append(model)
 
 
+                general_model_path = './model_checkpoints/' + model.model_folder.split('/')[0]
 
-                if ('metrics.pkl' in os.listdir('./model_checkpoints/' + model.model_folder)) or (is_debbug == False) :
+                if 'metrics.pkl' in os.listdir(general_model_path):
                     pass
                 else:
 
@@ -227,8 +228,8 @@ def get_all_results(grouped = False):
         execution_info = {
             'directory': directory,
             'model_name': directory.split('_')[0],
-            'dataset': directory.split('_')[1],
-            'seed': int(directory.split('_')[2])
+            'dataset': '_'.join(directory.split('_')[1:-1]),
+            'seed': int(directory.split('_')[-1])
         }
 
 
@@ -262,3 +263,5 @@ def get_all_results(grouped = False):
 
     else:
         return complete_data
+
+get_all_results(grouped = False)

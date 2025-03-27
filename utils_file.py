@@ -263,5 +263,3 @@ def get_all_results(grouped = False):
 
     else:
         return complete_data
-
-get_all_results(grouped = False)

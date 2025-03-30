@@ -30,7 +30,7 @@ class NNModel(nn.Module):
         self.metadata = metadata
         self.random_state = random_state
         self.model_name = model_name
-        self.epochs = 5000
+        self.epochs = 500
         self.num_classes = self.metadata['class_values']
         self.batch_size = 32
         self.metrics = {}
@@ -124,6 +124,7 @@ class NNModel(nn.Module):
         start_time = time.time()
 
         for epoch in range(self.epochs):
+            time1 = time.time()
             self.train()
 
             running_loss = 0.0
@@ -231,9 +232,12 @@ class NNModel(nn.Module):
 
                 if patience_early_stopping == 0:
                     break
+            
+            time2 = time.time()
+            time_diff = time2 - time1
 
-            print(f'{self.random_state} - Epoch [{epoch+1}/{self.epochs}]| Loss: {epoch_loss:.4f}| Accuracy: {epoch_accuracy:.4f}| '
-              f'Val Loss: {valid_loss:.4f}| Val Accuracy: {valid_accuracy:.4f} | LR: {current_lr} | Patience left ES: {patience_early_stopping} | Patience left LR: {patience_lr}')
+            print(f'{self.random_state} - Epoch [{epoch+1}/{self.epochs}]| Loss: {epoch_loss:.4f}| Acc: {epoch_accuracy:.4f}| '
+              f'Val Loss: {valid_loss:.4f}| Val Acc: {valid_accuracy:.4f} | LR: {current_lr} | PatLeft ES: {patience_early_stopping} | PatLeft LR: {patience_lr} | Best Acc: {best_val_acc:.4f} | Time: {time_diff:.4f}')
 
 
 

@@ -6,7 +6,7 @@ import pandas as pd
 import torch 
 from torch import nn
 import random
-from sklearn.metrics import accuracy_score
+from sklearn.metrics import accuracy_score, f1_score
 
 from tqdm import tqdm
 from modality_info import modalities
@@ -15,6 +15,7 @@ from input.reading_datasets import read_dataset_from_file
 from input.time_series_module import TimeSeriesDataset
 from preprocessing.get_dummies_labels import GetDummiesLabels
 from preprocessing.train_test_split_module import TrainTestSplit
+from torch.utils.data import DataLoader
 
 def set_seeds(seed):
     os.environ['PYTHONHASHSEED'] = str(seed)
@@ -150,30 +151,70 @@ def training_nn_for_seeds(used_model, device = 'cuda', datasets = [], seeds = []
                     train_predictions = []
                     
                     for model in best_models:
+                        predictions = []
+                        train_predictions = []
 
-                        with torch.inference_mode():   
-                            logits = model(test_dataset.data.type(torch.float32))
-                            predictions.append(activation_function(logits))
+                        model.eval()
 
-                            train_logits = model(train_dataset.data.type(torch.float32))
-                            train_predictions.append(activation_function(train_logits))
+                        # Create DataLoaders
+                        test_loader = DataLoader(test_dataset, batch_size=model.batch_size, shuffle=False)
+                        train_loader = DataLoader(train_dataset, batch_size=model.batch_size, shuffle=False)
+
+                        with torch.inference_mode():
+                            # Inference for test dataset
+                            for inputs, _ in test_loader:
+                                inputs = inputs.type(torch.float32).to(model.device)
+                                logits = model(inputs)
+                                predictions.append(activation_function(logits).cpu())  # detach and store on CPU
+
+                            # Inference for train dataset
+                            for inputs, _ in train_loader:
+                                inputs = inputs.type(torch.float32).to(model.device)
+                                train_logits = model(inputs)
+                                train_predictions.append(activation_function(train_logits).cpu())
+
+                        # Stack and average predictions across all batches
+                        ensembled_predictions = torch.cat(predictions, dim=0)
+                        ensembled_predictions_train = torch.cat(train_predictions, dim=0)
+
+                        # Accuracy and F1 (assuming one-hot encoded labels)
+                        test_labels = torch.argmax(test_dataset.labels, dim=1).cpu()
+                        train_labels = torch.argmax(train_dataset.labels, dim=1).cpu()
+
+                        predicted_test = torch.argmax(ensembled_predictions, dim=1)
+                        predicted_train = torch.argmax(ensembled_predictions_train, dim=1)
+
+                        accuracy = accuracy_score(y_true=test_labels, y_pred=predicted_test)
+                        train_accuracy = accuracy_score(y_true=train_labels, y_pred=predicted_train)
+                        f1_macro = f1_score(y_true=train_labels, y_pred=predicted_train, average='macro')
+                        f1_micro = f1_score(y_true=train_labels, y_pred=predicted_train, average='micro')
+
+                    #     with torch.inference_mode():   
+                    #         logits = model(test_dataset.data.type(torch.float32))
+                    #         predictions.append(activation_function(logits))
+
+                    #         train_logits = model(train_dataset.data.type(torch.float32))
+                    #         train_predictions.append(activation_function(train_logits))
                         
-                        stacked_tensors = torch.stack(predictions)
-                        ensembled_predictions = torch.mean(stacked_tensors, dim = 0)
+                    #     stacked_tensors = torch.stack(predictions)
+                    #     ensembled_predictions = torch.mean(stacked_tensors, dim = 0)
 
-                        stacked_tensors_train = torch.stack(train_predictions)
-                        ensembled_predictions_train = torch.mean(stacked_tensors_train, dim = 0)
+                    #     stacked_tensors_train = torch.stack(train_predictions)
+                    #     ensembled_predictions_train = torch.mean(stacked_tensors_train, dim = 0)
                     
-                    accuracy = accuracy_score(y_true = torch.argmax(test_dataset.labels, dim = 1).cpu(), y_pred = torch.argmax(ensembled_predictions, dim = 1).cpu())
-                    train_accuracy = accuracy_score(y_true = torch.argmax(train_dataset.labels, dim = 1).cpu(), y_pred = torch.argmax(ensembled_predictions_train, dim = 1).cpu())
-
+                    # accuracy = accuracy_score(y_true = torch.argmax(test_dataset.labels, dim = 1).cpu(), y_pred = torch.argmax(ensembled_predictions, dim = 1).cpu())
+                    # train_accuracy = accuracy_score(y_true = torch.argmax(train_dataset.labels, dim = 1).cpu(), y_pred = torch.argmax(ensembled_predictions_train, dim = 1).cpu())
+                    # f1_macro = f1_score(y_true = torch.argmax(train_dataset.labels, dim = 1).cpu(), y_pred = torch.argmax(ensembled_predictions_train, dim = 1).cpu())
+                    # f1_micro = f1_score(y_true = torch.argmax(train_dataset.labels, dim = 1).cpu(), y_pred = torch.argmax(ensembled_predictions_train, dim = 1).cpu())
                     
                     history = {
                         'train_loss' : [0], 
                         'test_loss': [0], 
                         'train_accuracy': [train_accuracy], 
                         'test_accuracy': [accuracy], 
-                        'epochs': [9999]
+                        'epochs': [9999],
+                        'f1_micro': [f1_micro],
+                        'f1_macro': [f1_macro]
 
                     }
 
@@ -244,6 +285,11 @@ def get_all_results(grouped = False):
             execution_info['epochs'] = len(history['history']['epochs'])
             execution_info['execution_time'] = (history['traning_time'])
             execution_info['time_per_epoch'] = history['traning_time']/execution_info['epochs']
+            execution_info['f1_macro'] = history['history'].get('f1_macro', None)
+            execution_info['f1_micro'] = history['history'].get('f1_micro', None)
+
+            execution_info['f1_macro'] = execution_info['f1_macro'][0] if execution_info['f1_macro'] != None else None 
+            execution_info['f1_micro'] = execution_info['f1_micro'][0] if execution_info['f1_micro'] != None else None 
 
 
         info.append(execution_info)

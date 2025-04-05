@@ -1,5 +1,6 @@
 import copy
 import numpy as np
+from sklearn.metrics import f1_score
 import torch
 import os
 import pickle
@@ -114,7 +115,9 @@ class NNModel(nn.Module):
             'test_loss' : [],
             'train_accuracy' : [],
             'test_accuracy' : [],
-            'epochs': []
+            'epochs': [],
+            'f1_macro': [],
+            'f1_micro': []
         }
 
         best_val_acc = -1
@@ -171,6 +174,8 @@ class NNModel(nn.Module):
             epoch_accuracy = correct_predictions / total_predictions
 
             self.eval()
+            all_preds = []
+            all_targets = []
             with torch.inference_mode():
                 valid_loss = 0.0
                 valid_correct = 0
@@ -196,11 +201,17 @@ class NNModel(nn.Module):
 
                     valid_loss += loss.item()
                     _, predicted = torch.max(outputs, 1)
+                    _, target_indices = torch.max(targets, 1)
                     valid_correct += (predicted == torch.max(targets, 1).indices).sum().item()
                     valid_total += targets.size(0)
 
+                    all_preds.extend(predicted.cpu().numpy())
+                    all_targets.extend(target_indices.cpu().numpy())
+
                 valid_loss /= len(self.test_dataload)
                 valid_accuracy = valid_correct / valid_total
+                f1_macro = f1_score(all_targets, all_preds, average='macro')
+                f1_micro = f1_score(all_targets, all_preds, average='micro')
             
             self.scheduler.step(valid_accuracy)
 
@@ -209,6 +220,9 @@ class NNModel(nn.Module):
             self.history['train_accuracy'].append(epoch_accuracy)
             self.history['test_accuracy'].append(valid_accuracy)
             self.history['epochs'].append(epoch)
+            self.history['f1_macro'].append(f1_macro)
+            self.history['f1_micro'].append(f1_micro)
+            
 
             current_lr = get_lr(self.optimizer)
             
@@ -223,6 +237,15 @@ class NNModel(nn.Module):
 
                 patience_early_stopping = int(self.epochs*0.5)  
                 patience_lr = int(self.epochs*0.05) 
+
+                end_time = time.time()
+                self.metrics = {
+                    'traning_time': end_time - start_time,
+                    'history': self.history
+                }
+
+                with open('./model_checkpoints/' + self.model_folder + '/metrics.pkl', 'wb') as f:  # open a text file
+                    pickle.dump(self.metrics, f) # serialize the list 
             else:
                 patience_early_stopping = patience_early_stopping - 1
                 patience_lr = patience_lr - 1
@@ -236,8 +259,8 @@ class NNModel(nn.Module):
             time2 = time.time()
             time_diff = time2 - time1
 
-            print(f'{self.random_state} - Epoch [{epoch+1}/{self.epochs}]| Loss: {epoch_loss:.4f}| Acc: {epoch_accuracy:.4f}| '
-              f'Val Loss: {valid_loss:.4f}| Val Acc: {valid_accuracy:.4f} | LR: {current_lr} | PatLeft ES: {patience_early_stopping} | PatLeft LR: {patience_lr} | Best Acc: {best_val_acc:.4f} | Time: {time_diff:.4f}')
+            print(f'{self.random_state if not self.is_ensemble else self.model_num} - Epoch [{epoch+1}/{self.epochs}]| Loss: {epoch_loss:.4f}| Acc: {epoch_accuracy:.4f}| '
+              f'Val Loss: {valid_loss:.4f}| Val Acc: {valid_accuracy:.4f} | LR: {current_lr:.4f} | Pat ES: {patience_early_stopping} | Pat LR: {patience_lr} | Best Acc: {best_val_acc:.4f} | Time: {time_diff:.4f}')
 
 
 
